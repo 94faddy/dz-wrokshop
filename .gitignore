@@ -1,0 +1,5 @@
+/.next
+/downloads
+/node_modules
+/steamcmd
+package-lock.json
