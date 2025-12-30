@@ -477,8 +477,74 @@ const fetchWorkshopInfo = async (workshopId) => {
     const requiresSubscription = pageContent.includes('Subscribe to download') ||
                                pageContent.includes('This item requires a subscription');
 
-    const appId = pageContent.match(/data-appid="(\d+)"/)?.[1];
+    let appId = 'unknown';
+    let detectionMethod = 'none';
+    
+    // Pattern 1: Legacy data-appid attribute (may still work on some pages)
+    const dataAppIdMatch = pageContent.match(/data-appid="(\d+)"/);
+    if (dataAppIdMatch && dataAppIdMatch[1]) {
+      appId = dataAppIdMatch[1];
+      detectionMethod = 'data-appid';
+    }
+    
+    // Pattern 2: steamcommunity.com/app/XXXXX URLs
+    if (appId === 'unknown') {
+      const communityAppMatch = pageContent.match(/steamcommunity\.com\/app\/(\d+)/);
+      if (communityAppMatch && communityAppMatch[1]) {
+        appId = communityAppMatch[1];
+        detectionMethod = 'community-app-url';
+      }
+    }
+    
+    // Pattern 3: store.steampowered.com/app/XXXXX URLs
+    if (appId === 'unknown') {
+      const storeAppMatch = pageContent.match(/store\.steampowered\.com\/app\/(\d+)/);
+      if (storeAppMatch && storeAppMatch[1]) {
+        appId = storeAppMatch[1];
+        detectionMethod = 'store-app-url';
+      }
+    }
+    
+    // Pattern 4: ?appid=XXXXX query parameters
+    if (appId === 'unknown') {
+      const queryAppIdMatch = pageContent.match(/[?&]appid=(\d+)/i);
+      if (queryAppIdMatch && queryAppIdMatch[1]) {
+        appId = queryAppIdMatch[1];
+        detectionMethod = 'query-param';
+      }
+    }
+    
+    // Pattern 5: /app/XXXXX/ in any URL path
+    if (appId === 'unknown') {
+      const genericAppMatch = pageContent.match(/\/app\/(\d+)\//);
+      if (genericAppMatch && genericAppMatch[1]) {
+        appId = genericAppMatch[1];
+        detectionMethod = 'generic-app-path';
+      }
+    }
+    
+    // Pattern 6: DayZ-specific text detection as fallback
+    if (appId === 'unknown') {
+      const isDayZByContent = pageContent.includes('>DayZ<') || 
+                             pageContent.includes('DayZ >') ||
+                             pageContent.includes('"DayZ"') ||
+                             pageContent.includes('/app/221100');
+      
+      if (isDayZByContent) {
+        appId = '221100';
+        detectionMethod = 'dayz-content-detection';
+      }
+    }
+    
+    // Determine if this is a DayZ item
     const isDayZ = appId === '221100';
+    
+    wsLogger.info('workshop', `AppID Detection: ${appId} via ${detectionMethod}`, {
+      workshopId,
+      appId,
+      isDayZ,
+      detectionMethod
+    });
     
     const workshopInfo = {
       workshopId,
